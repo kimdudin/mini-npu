@@ -144,7 +144,9 @@ main.py
 ### 패턴 생성기
 N 을 입력하면 N×N Cross 와 X 를 생성하고, 생성된 패턴을 필터와 입력으로 재사용해 판정한다.
 
-![패턴 생성기](images/bonus_generator.png)
+![패턴 생성기 1 - 생성된 패턴 출력](images/bonus_generator1.png)
+
+![패턴 생성기 2 - 판정과 성능 분석](images/bonus_generator2.png)
 
 
 
