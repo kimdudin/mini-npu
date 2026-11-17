@@ -16,6 +16,61 @@ python main.py
   ```
   → A 점수 5, B 점수 1, 판정 A
 
+
+## 요구사항 체크리스트
+
+| 번호 | 구분 | 구현 위치 | 상태 |
+|---|---|---|---|
+| 01 | 데이터 구조 (n×n 2차원 리스트, 3/5/13/25) | `generate_cross`, `generate_x`, `m[i][j]` | ✅ |
+| 02 | 입력 처리 + 형식 오류 시 재입력 | `read_matrix`, `mode_user` | ✅ |
+| 03 | data.json 로드, size_N 추출, 크기 검증 | `mode_json`, `load_filters`, `validate_matrix`, `run_case` | ✅ |
+| 04 | 라벨 정규화 (+/cross → Cross, x → X) | `normalize_label` | ✅ |
+| 05 | MAC 연산 (반복문, 외부 라이브러리 금지) | `mac` | ✅ |
+| 06 | epsilon 비교와 A/B/UNDECIDED 판정, PASS/FAIL | `is_tie`, `judge`, `run_case` | ✅ |
+| 07 | 크기별 10회 평균 시간(ms)과 N² 표 | `measure_ms`, `print_perf_table` | ✅ |
+| 08 | 전체/통과/실패 수와 실패 사유 | `mode_json` | ✅ |
+| 09 | 실행 흐름 (선택 → 입력/로드 → MAC → 판정 → 성능 → 요약) | `main` | ✅ |
+
+## 설계 트리
+
+```
+main.py
+├─ 라벨/패턴 도구
+│   ├─ normalize_label()      표기 통일 (+, cross → Cross / x → X)
+│   ├─ generate_cross(n)      N×N 십자가 생성 (보너스)
+│   └─ generate_x(n)          N×N X 생성 (보너스)
+├─ 연산/판정
+│   ├─ mac()                  위치별 곱셈 후 누적 (이중 for문)
+│   ├─ mac_flat()             1차원 버전 (보너스)
+│   ├─ is_tie()               abs(a-b) < 1e-9
+│   └─ judge()                A/B 또는 Cross/X 또는 UNDECIDED
+├─ 성능
+│   ├─ measure_ms()           10회 평균(ms), 연산 구간만 측정
+│   └─ print_perf_table()     크기 / 평균 시간 / N² 표
+├─ 모드 1 (사용자 입력)
+│   ├─ read_matrix()          한 줄씩 입력, 오류 시 재입력
+│   └─ mode_user()
+├─ 모드 2 (data.json)
+│   ├─ validate_matrix()      크기·숫자 검증 → 사유 문자열
+│   ├─ load_filters()         size_N 필터 로드 + 라벨 정규화
+│   ├─ run_case()             한 케이스 판정, 예외 없이 (PASS/FAIL, 사유)
+│   └─ mode_json()            전체 실행 + 요약
+└─ main()                     메뉴 선택
+```
+
+## 실행 흐름
+
+```
+메뉴 선택 ─┬─ 1) 사용자 입력: 필터 A, B 입력 → 저장 확인 → 패턴 입력
+           │      → MAC 연산 → 판정(A / B / 판정 불가) → 성능 분석(3×3)
+           │
+           └─ 2) data.json: 필터 로드 → 패턴 로드/검증(크기, 라벨)
+                  → MAC 연산 / 판정 / PASS-FAIL 출력
+                  → 성능 분석(3, 5, 13, 25) → 결과 요약(전체/통과/실패/사유)
+```
+
+
+
 ## 구현 요약
 - **데이터 구조**: n×n 2차원 리스트(`list[list[float]]`). `m[i][j]` 로 읽기/쓰기.
 - **라벨 정규화** (`normalize_label`): `'+'`, `'cross'` → `Cross`, `'x'` → `X` (대소문자/공백 무시). 알 수 없는 라벨은 `None` 으로 처리해 해당 케이스만 FAIL.
@@ -23,6 +78,8 @@ python main.py
 - **동점 처리**: `abs(a - b) < 1e-9` 이면 동점 → `UNDECIDED` (모드 1에서는 "판정 불가").
 - **입력 검증**: 모드 1은 행/열 개수·숫자 파싱 오류 시 안내 문구 출력 후 재입력. 모드 2는 스키마·크기 불일치를 케이스 단위 FAIL로 처리하며 프로그램은 종료되지 않음.
 - **보너스(코드만 구현)**: `generate_cross(n)`, `generate_x(n)` 패턴 생성기, 1차원 배열 버전 `mac_flat`. 성능 표 측정에 생성기를 사용한다.
+
+
 
 ## 실행 결과 화면
 
@@ -45,6 +102,20 @@ python main.py
 `size_5_1` 의 expected 를 `?` 로 바꿔 실행했다. 프로그램이 멈추지 않고 해당 케이스만 FAIL 로 집계된다(전체 6 / 통과 5 / 실패 1).
 
 ![오류 케이스 FAIL 처리 결과](images/fail_case.png)
+
+## 추가 검증 결과 (코드에는 있었지만 별도로 실행해 확인한 것)
+
+### 크기 불일치와 UNDECIDED (모드 2)
+`size_5_2` 는 전부 1인 패턴이라 Cross·X 점수가 9.0 으로 같아 UNDECIDED 가 나오고, expected 와 달라 FAIL 로 집계된다. `size_5_3` 은 3×3 패턴을 size_5 에 넣은 경우, `size_5_4` 는 2행 열 수가 4인 경우로 둘 다 "패턴 크기 불일치"로 FAIL 처리되며 프로그램은 끝까지 실행된다.
+
+![크기 불일치와 UNDECIDED](images/mode2_mismatch_undecided.png)
+
+### 열 개수 불일치와 숫자 파싱 실패 (모드 1)
+숫자를 2개만 넣거나 `a b c` 처럼 숫자가 아닌 값을 넣으면 같은 안내 문구가 출력되고 다시 입력받는다.
+
+![열 개수 불일치와 숫자 파싱 실패](images/mode1_parse_error.png)
+
+
 
 ## 결과 리포트
 ### 실행 결과 (샘플 data.json: 5/13/25 각 Cross·X 1개씩, 총 6케이스)
