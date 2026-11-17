@@ -222,21 +222,95 @@ def mode_json():
     if pre_fail:
         print("(위 목록에는 필터 단계 문제 %d건 포함)" % pre_fail)
 
+# ---------------------------------------------------------------- 보너스 1: 메모리 접근 최적화 (2차원 vs 1차원)
+def flatten(m):
+    """n x n 2차원 배열 -> 길이 n*n 1차원 배열"""
+    return [v for row in m for v in row]
+
+
+def time_avg_ms(func, a, b, repeat=REPEAT):
+    """같은 입력으로 func(a, b)를 repeat회 호출한 평균 시간(ms). 연산 구간만 측정."""
+    func(a, b)  # 워밍업 1회 (첫 호출의 준비 시간이 결과를 흔들지 않도록, 측정에는 포함하지 않음)
+    total = 0.0
+    for _ in range(repeat):
+        s = time.perf_counter()
+        func(a, b)
+        total += time.perf_counter() - s
+    return total / repeat * 1000
+
+
+def mode_compare():
+    print("\n=== 보너스 1: 최적화 전/후 성능 비교 (2차원 mac vs 1차원 mac_flat) ===")
+    print("동일 입력(Cross 패턴 x X 필터), 동일 반복 횟수(%d회)로 측정합니다." % REPEAT)
+    print("%-10s %-14s %-14s %-10s %-10s" % ("크기(NxN)", "2차원(ms)", "1차원(ms)", "속도 비", "점수 일치"))
+    print("-" * 62)
+    for n in (3, 5, 13, 25):
+        p, f = generate_cross(n), generate_x(n)
+        pf, ff = flatten(p), flatten(f)
+        same = is_tie(mac(p, f), mac_flat(pf, ff))
+        t2 = time_avg_ms(mac, p, f)
+        t1 = time_avg_ms(mac_flat, pf, ff)
+        ratio = t2 / t1 if t1 > 0 else 0.0
+        print("%-10s %-14.6f %-14.6f %-10s %-10s"
+              % ("%dx%d" % (n, n), t2, t1, "%.2fx" % ratio, "O" if same else "X"))
+    print("속도 비 = 2차원 시간 / 1차원 시간 (1보다 크면 1차원이 더 빠름)")
+
+
+# ---------------------------------------------------------------- 보너스 2: 패턴 생성기
+def print_pattern(name, m):
+    print("%s:" % name)
+    for row in m:
+        print("  " + " ".join("#" if v else "." for v in row))
+
+
+def mode_generator():
+    print("\n=== 보너스 2: 패턴 생성기 ===")
+    while True:
+        raw = input("크기 N 입력 (3 이상의 정수): ").strip()
+        if raw.isdigit() and int(raw) >= 3:
+            n = int(raw)
+            break
+        print("입력 오류: 3 이상의 정수를 입력하세요.")
+    if n % 2 == 0:
+        print("(참고: 짝수 N 은 십자가 중심이 정확히 한가운데가 아니라 한 칸 치우칩니다.)")
+
+    cross, x = generate_cross(n), generate_x(n)
+    print_pattern("Cross %dx%d" % (n, n), cross)
+    print_pattern("X %dx%d" % (n, n), x)
+
+    # 생성된 패턴을 그대로 필터/입력으로 재활용해 판정
+    print("\n생성된 패턴을 입력으로 판정합니다 (필터 = 생성된 Cross / X).")
+    for label, pattern in (("Cross", cross), ("X", x)):
+        s = time.perf_counter()
+        sc, sx = mac(pattern, cross), mac(pattern, x)
+        ms = (time.perf_counter() - s) * 1000
+        print("입력=%-5s Cross 점수=%-6s X 점수=%-6s 판정=%-9s (%.6f ms)"
+              % (label, sc, sx, judge(sc, sx, "Cross", "X"), ms))
+    print_perf_table([n])
+
 
 # ---------------------------------------------------------------- 메인
 def main():
     while True:
         print("\n=== Mini NPU 시뮬레이터 ===")
-        print("1. 사용자 입력 (3x3)\n2. data.json 분석\n0. 종료")
+        print("1. 사용자 입력 (3x3)")
+        print("2. data.json 분석")
+        print("3. [보너스] 최적화 전/후 성능 비교 (2차원 vs 1차원)")
+        print("4. [보너스] 패턴 생성기 (N 입력)")
+        print("0. 종료")
         c = input("선택: ").strip()
         if c == "1":
             mode_user()
         elif c == "2":
             mode_json()
+        elif c == "3":
+            mode_compare()
+        elif c == "4":
+            mode_generator()
         elif c == "0":
             break
         else:
-            print("1, 2, 0 중에서 선택하세요.")
+            print("0 ~ 4 중에서 선택하세요.")
 
 
 if __name__ == "__main__":
